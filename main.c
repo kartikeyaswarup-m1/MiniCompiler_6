@@ -2,11 +2,11 @@
 
 extern int yyparse();
 extern FILE *yyin;
-void finalizeCompilation();  // 👈 Add this line
+void finalizeCompilation();  
 
 int main() {
     yyin = stdin;
     yyparse();
-    finalizeCompilation(); // Optional: To print IC and assembly
+    finalizeCompilation(); 
     return 0;
 }
