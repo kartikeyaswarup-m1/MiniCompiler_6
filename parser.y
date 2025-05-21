@@ -14,6 +14,7 @@ extern FILE *yyin;
     char *str;
 }
 
+%token RETURN COMMA LPAREN RPAREN
 %token <str> ID
 %token <num> NUMBER
 %token INT IF ELSE WHILE
@@ -26,19 +27,19 @@ extern FILE *yyin;
 
 %%
 
-program: 
-    program statement 
+program:
+    program statement
     | statement
     ;
 
-statement: 
-    INT ID SEMI                         { insertSymbol($2, 0); }
-    | ID ASSIGN expression SEMI         { checkInitialization($1); initializeSymbol($1); generateIC("=", $3, NULL, $1); }
-    | IF LBRACE condition RBRACE LBRACE program RBRACE ELSE LBRACE program RBRACE
-    | WHILE LBRACE condition RBRACE LBRACE program RBRACE
+statement:
+    INT ID SEMI                      { insertSymbol($2, 0); }
+    | ID ASSIGN expression SEMI      { checkInitialization($1); initializeSymbol($1); generateIC("=", $3, NULL, $1); }
+    | IF LPAREN condition RPAREN LBRACE program RBRACE ELSE LBRACE program RBRACE
+    | WHILE LPAREN condition RPAREN LBRACE program RBRACE
     ;
 
-condition: 
+condition:
     expression GT expression
     | expression LT expression
     | expression EQ expression
@@ -46,14 +47,14 @@ condition:
     ;
 
 expression:
-    expression PLUS expression          { $$ = generateArithmeticIC("+", $1, $3); }
-    | expression MINUS expression       { $$ = generateArithmeticIC("-", $1, $3); }
-    | expression MULT expression        { $$ = generateArithmeticIC("*", $1, $3); }
-    | expression DIV expression         { $$ = generateArithmeticIC("/", $1, $3); }
-    | ID                                { checkInitialization($1); $$ = $1; }
+    expression PLUS expression       { $$ = generateArithmeticIC("+", $1, $3); }
+    | expression MINUS expression    { $$ = generateArithmeticIC("-", $1, $3); }
+    | expression MULT expression     { $$ = generateArithmeticIC("*", $1, $3); }
+    | expression DIV expression      { $$ = generateArithmeticIC("/", $1, $3); }
+    | ID                            { checkInitialization($1); $$ = $1; }
     | NUMBER {
-        char temp[10];
-        sprintf(temp, "%d", $1);
+        char temp[20];
+        snprintf(temp, sizeof(temp), "%d", $1);
         char *val = strdup(temp);
         $$ = newTempVar();
         generateIC("=", val, NULL, $$);
