@@ -2,96 +2,105 @@
 #include <stdlib.h>
 #include <string.h>
 #include "compiler.h"
-#include "parser.tab.h"
 
-#define MAX_SYMBOLS 100
-#define MAX_CODE 100
-
-typedef struct {
-    char name[20];
-    int type;
+typedef struct Symbol {
+    char *name;
     int initialized;
+    struct Symbol *next;
 } Symbol;
 
-Symbol symTable[MAX_SYMBOLS];
-int symCount = 0;
+static Symbol *symbolTable = NULL;
+static int tempVarCount = 0;
 
-typedef struct {
-    char code[50];
-} IntermediateCode;
+typedef struct ICNode {
+    char *code;
+    struct ICNode *next;
+} ICNode;
 
-IntermediateCode icTable[MAX_CODE];
-int icCount = 0;
-int tempVarCount = 0;
+static ICNode *icHead = NULL, *icTail = NULL;
+
+static void appendIC(const char *line) {
+    ICNode *node = malloc(sizeof(ICNode));
+    node->code = strdup(line);
+    node->next = NULL;
+    if (!icHead) {
+        icHead = icTail = node;
+    } else {
+        icTail->next = node;
+        icTail = node;
+    }
+}
+
+void insertSymbol(const char *name, int initialized) {
+    Symbol *sym = malloc(sizeof(Symbol));
+    sym->name = strdup(name);
+    sym->initialized = initialized;
+    sym->next = symbolTable;
+    symbolTable = sym;
+}
+
+void checkInitialization(const char *name) {
+    Symbol *sym = symbolTable;
+    while (sym) {
+        if (strcmp(sym->name, name) == 0) {
+            if (!sym->initialized) {
+                fprintf(stderr, "Warning: Variable '%s' used before initialization\n", name);
+            }
+            return;
+        }
+        sym = sym->next;
+    }
+    fprintf(stderr, "Warning: Variable '%s' not declared\n", name);
+}
+
+void initializeSymbol(const char *name) {
+    Symbol *sym = symbolTable;
+    while (sym) {
+        if (strcmp(sym->name, name) == 0) {
+            sym->initialized = 1;
+            return;
+        }
+        sym = sym->next;
+    }
+}
 
 char* newTempVar() {
-    static char temp[10];
-    sprintf(temp, "t%d", tempVarCount++);
-    return strdup(temp);
+    char buffer[20];
+    sprintf(buffer, "t%d", tempVarCount++);
+    return strdup(buffer);
 }
 
-int lookup(char *name) {
-    for (int i = 0; i < symCount; i++) {
-        if (strcmp(symTable[i].name, name) == 0) {
-            return i;
-        }
+void generateIC(const char *op, const char *arg1, const char *arg2, const char *result) {
+    char line[100];
+    if (strcmp(op, "=") == 0) {
+        snprintf(line, sizeof(line), "= %s, %s", result, arg1);
+        appendIC(line);
     }
-    return -1;
+    // You can extend for other ops if needed
 }
 
-void insertSymbol(char *name, int type) {
-    if (lookup(name) == -1) {
-        strcpy(symTable[symCount].name, name);
-        symTable[symCount].type = type;
-        symTable[symCount].initialized = 0;
-        symCount++;
-    } else {
-        printf("Error: Variable %s already declared!\n", name);
-    }
+char* generateArithmeticIC(const char *op, const char *arg1, const char *arg2) {
+    char *temp = newTempVar();
+    char line[100];
+    snprintf(line, sizeof(line), "%s := %s %s %s", temp, arg1, op, arg2);
+    appendIC(line);
+    return temp;
 }
 
-void initializeSymbol(char *name) {
-    int idx = lookup(name);
-    if (idx != -1) symTable[idx].initialized = 1;
-}
-
-void checkInitialization(char *name) {
-    int idx = lookup(name);
-    if (idx != -1 && symTable[idx].initialized == 0) {
-        printf("Warning: Variable %s used before initialization!\n", name);
+void printIC() {
+    printf("Intermediate Code:\n");
+    ICNode *cur = icHead;
+    while (cur) {
+        printf("%s\n", cur->code);
+        cur = cur->next;
     }
 }
 
-char* generateArithmeticIC(char *op, char *arg1, char *arg2) {
-    char *result = newTempVar();
-    sprintf(icTable[icCount++].code, "%s := %s %s %s", result, arg1, op, arg2);
-    return result;
-}
-
-void generateIC(char *operation, char *arg1, char *arg2, char *result) {
-    if (arg2 == NULL) {
-        sprintf(icTable[icCount].code, "%s %s, %s", operation, result, arg1);
-    } else {
-        sprintf(icTable[icCount].code, "%s %s, %s, %s", operation, result, arg1, arg2);
-    }
-    icCount++;
-}
-
-void printIntermediateCode() {
-    printf("\nIntermediate Code:\n");
-    for (int i = 0; i < icCount; i++) {
-        printf("%s\n", icTable[i].code);
-    }
-}
-
-void generateAssembly() {
+void printAssembly() {
     printf("\nAssembly Code:\n");
-    for (int i = 0; i < icCount; i++) {
-        printf("%s\n", icTable[i].code);
+    ICNode *cur = icHead;
+    while (cur) {
+        printf("%s\n", cur->code);
+        cur = cur->next;
     }
-}
-
-void finalizeCompilation() {
-    printIntermediateCode();
-    generateAssembly();
 }
